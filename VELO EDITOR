@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Velo Photo Editor - Pro Ultimate</title>
+    <!-- Fabric.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Pacifico&family=Bebas+Neue&family=Righteous&family=Lobster&family=Satisfy&family=Russo+One&family=Caveat:wght@700&family=Permanent+Marker&family=Orbitron:wght@600&family=Monoton&family=Anton&family=Dancing+Script&family=Fredoka+One&family=Indie+Flower&family=Yellowtail&family=Bangers&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg: #000000;
+            --surface: #121212;
+            --accent: #007AFF;
+            --accent-gradient: linear-gradient(135deg, #007AFF 0%, #00C6FF 100%);
+            --danger: #FF3B30;
+            --text: #ffffff;
+            --text-dim: #8e8e93;
+            --border: #2c2c2e;
+            --shelf-bg: #1a1a1c;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Poppins', sans-serif; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: var(--bg); color: var(--text); overflow: hidden; }
+
+        /* Welcome Screen */
+        #welcome-screen {
+            position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: radial-gradient(circle at center, #1c1c1e 0%, #000 100%); z-index: 1000; padding: 20px; text-align: center;
+        }
+        .logo-main { font-family: 'Monoton', cursive; font-size: 48px; color: var(--accent); margin-bottom: 10px; text-shadow: 0 0 15px rgba(0,122,255,0.4); }
+        .welcome-desc { color: var(--text-dim); font-size: 14px; margin-bottom: 35px; max-width: 320px; line-height: 1.6; }
+
+        /* Header UI */
+        .header {
+            height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 15px;
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(15px); border-bottom: 1px solid var(--border); z-index: 500;
+        }
+        .h-right { display: flex; align-items: center; gap: 8px; }
+        .h-btn { background: none; border: none; color: white; cursor: pointer; padding: 10px; display: flex; align-items: center; transition: transform 0.2s; }
+        .h-btn:active { transform: scale(0.85); }
+        .h-btn.disabled { opacity: 0.15; pointer-events: none; }
+        #del-btn { color: var(--danger); display: none; }
+
+        /* Canvas Viewport */
+        .viewport {
+            height: calc(100vh - 240px); display: flex; align-items: center; justify-content: center;
+            background: #080808; position: relative; overflow: hidden; padding: 10px;
+        }
+
+        /* Bottom UI */
+        .bottom-ui { position: fixed; bottom: 0; width: 100%; background: var(--surface); z-index: 500; border-top: 1px solid var(--border); }
+        .shelf { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); background: var(--shelf-bg); }
+        .shelf.active { max-height: 180px; padding: 15px 12px; border-top: 1px solid var(--border); overflow-y: auto; }
+
+        /* Navigation Bar */
+        .scroller { display: flex; overflow-x: auto; gap: 12px; padding: 5px 0; scrollbar-width: none; }
+        .scroller::-webkit-scrollbar { display: none; }
+        .nav-bar { display: flex; overflow-x: auto; background: #000; padding: 12px 0; scrollbar-width: none; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; min-width: 65px; gap: 6px; color: var(--text-dim); font-size: 10px; cursor: pointer; transition: 0.3s; }
+        .nav-item.active { color: var(--accent); text-shadow: 0 0 8px rgba(0,122,255,0.6); }
+
+        .tool-card {
+            min-width: 75px; height: 80px; background: #242427; border-radius: 14px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 8px; font-size: 11px; flex-shrink: 0; border: 1px solid #333; text-align: center; transition: 0.2s;
+        }
+        .tool-card.active { border-color: var(--accent); color: var(--accent); }
+
+        .premium-btn {
+            width: 100%; background: var(--accent-gradient); color: white; border: none; 
+            padding: 16px; border-radius: 15px; font-weight: 600; font-size: 15px;
+            display: flex; align-items: center; justify-content: center; gap: 12px;
+            cursor: pointer; box-shadow: 0 8px 20px rgba(0,122,255,0.35); transition: 0.3s;
+        }
+
+        .slider-group { margin-bottom: 12px; width: 100%; }
+        .slider-label { display: flex; justify-content: space-between; font-size: 11px; color: #a1a1aa; margin-bottom: 6px; }
+        input[type="range"] { width: 100%; height: 5px; appearance: none; background: #333; border-radius: 5px; accent-color: var(--accent); }
+
+        .color-dot { width: 34px; height: 34px; border-radius: 50%; border: 2px solid #222; flex-shrink: 0; cursor: pointer; transition: 0.2s; }
+        .color-dot.active { border: 3px solid #fff; outline: 2px solid var(--accent); transform: scale(1.15); }
+        .rainbow-picker { background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red); }
+
+        .sticker-btn-clean { font-size: 34px; min-width: 65px; height: 65px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .font-card { min-width: 110px; height: 38px; background: #27272a; border-radius: 6px; border: 1px solid #3f3f46; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+
+        /* --- EXPORT PREVIEW PAGE STYLES --- */
+        #export-page {
+            position: fixed; inset: 0; background: #000; z-index: 2000;
+            display: none; flex-direction: column; animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .export-header {
+            height: 60px; display: flex; align-items: center; justify-content: space-between;
+            padding: 0 15px; border-bottom: 1px solid var(--border);
+        }
+        .export-body {
+            flex: 1; overflow-y: auto; display: flex; flex-direction: column; 
+            align-items: center; padding: 20px; gap: 15px;
+        }
+        #preview-img-result {
+            max-width: 100%; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid var(--border);
+        }
+        .save-hint { color: var(--text-dim); font-size: 12px; text-align: center; line-height: 1.4; }
+
+        #file-input, #overlay-input, #custom-color { display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- Welcome Screen -->
+    <div id="welcome-screen">
+        <div class="logo-main">VELO</div>
+        <p class="welcome-desc">Velo Photo Editor is a fast, modern and easy-to-use photo editing application that allows users to enhance, customize and design their photos directly in the browser.</p>
+        <button onclick="document.getElementById('file-input').click()" class="premium-btn" style="max-width: 280px; margin: 0 auto;">
+            <i data-lucide="camera"></i> Add Image
+        </button>
+        <input type="file" id="file-input" accept="image/*">
+    </div>
+
+    <!-- Export Preview Page (Modal) -->
+    <div id="export-page">
+        <div class="export-header">
+            <button class="h-btn" onclick="closeExport()"><i data-lucide="chevron-left"></i> Back</button>
+            <span style="font-weight: 600; font-size: 14px;">Save Masterpiece</span>
+            <button class="h-btn" id="final-save-btn" onclick="triggerNativeDownload()"><i data-lucide="download" style="color:var(--accent)"></i> Save</button>
+        </div>
+        <div class="export-body">
+            <img id="preview-img-result" src="" alt="Velo Exported Image">
+            <div class="save-hint">
+                <i data-lucide="mouse-pointer-2" style="width:14px; vertical-align:middle; margin-right:4px;"></i>
+                Long-press the image above and select <b>"Save Image"</b> or <b>"Download Image"</b> to save it to your gallery.
+            </div>
+            <button class="premium-btn" onclick="closeExport()" style="background: transparent; border: 1px solid #333; box-shadow: none;">Edit More</button>
+        </div>
+    </div>
+
+    <!-- Main Application UI -->
+    <div id="editor-screen" style="display:none; flex-direction: column; height: 100vh;">
+        <div class="header">
+            <button class="h-btn" onclick="location.reload()"><i data-lucide="x"></i></button>
+            <div style="font-family:'Monoton'; font-size:16px; color:var(--accent)">VELO PRO</div>
+            <div class="h-right">
+                <button class="h-btn" id="del-btn" onclick="deleteObj()"><i data-lucide="trash-2"></i></button>
+                <button class="h-btn disabled" id="undo-btn" onclick="undo()"><i data-lucide="undo-2"></i></button>
+                <button class="h-btn disabled" id="redo-btn" onclick="redo()"><i data-lucide="redo-2"></i></button>
+                <!-- Download button triggers the new Export Page -->
+                <button class="h-btn" onclick="openExport()"><i data-lucide="download" style="color:var(--accent)"></i></button>
+            </div>
+        </div>
+
+        <div class="viewport">
+            <canvas id="c"></canvas>
+        </div>
+
+        <div class="bottom-ui">
+            <!-- Shelves -->
+            <div id="adj-shelf" class="shelf">
+                <div class="slider-group"><div class="slider-label">Brightness <span id="v-br">0</span></div><input type="range" min="-1" max="1" step="0.01" value="0" oninput="adj('Brightness',this.value,'v-br')"></div>
+                <div class="slider-group"><div class="slider-label">Contrast <span id="v-ct">0</span></div><input type="range" min="-1" max="1" step="0.01" value="0" oninput="adj('Contrast',this.value,'v-ct')"></div>
+                <div class="slider-group"><div class="slider-label">Saturation <span id="v-st">0</span></div><input type="range" min="-1" max="1" step="0.01" value="0" oninput="adj('Saturation',this.value,'v-st')"></div>
+                <div class="slider-group"><div class="slider-label">Blur <span id="v-bl">0</span></div><input type="range" min="0" max="1" step="0.01" value="0" oninput="adj('Blur',this.value,'v-bl')"></div>
+            </div>
+
+            <div id="fil-shelf" class="shelf">
+                <div class="scroller" id="filter-list">
+                    <div class="tool-card active" onclick="applyF(this, 'none')">Normal</div>
+                    <div class="tool-card" onclick="applyF(this, 'Grayscale')">Mono</div>
+                    <div class="tool-card" onclick="applyF(this, 'Sepia')">Sepia</div>
+                    <div class="tool-card" onclick="applyF(this, 'Kodachrome')">Dramatic</div>
+                    <div class="tool-card" onclick="applyF(this, 'Vintage')">Vintage</div>
+                    <div class="tool-card" onclick="applyF(this, 'Technicolor')">Movie</div>
+                    <div class="tool-card" onclick="applyF(this, 'Polaroid')">Instant</div>
+                </div>
+            </div>
+
+            <div id="txt-shelf" class="shelf">
+                <button onclick="addT()" class="premium-btn" style="height:45px; margin-bottom:12px; font-size:14px;"><i data-lucide="type"></i> Add New Text</button>
+                <div class="scroller" id="font-list"></div>
+                <div class="scroller" id="text-colors"></div>
+            </div>
+
+            <div id="drw-shelf" class="shelf">
+                <div class="scroller">
+                    <div class="tool-card active" id="b-pencil" onclick="setBrush('pencil')"><i data-lucide="pencil"></i>Pencil</div>
+                    <div class="tool-card" id="b-marker" onclick="setBrush('marker')"><i data-lucide="brush"></i>Marker</div>
+                    <div class="tool-card" id="b-neon" onclick="setBrush('neon')"><i data-lucide="sparkles"></i>Glow</div>
+                    <div class="tool-card" onclick="clearDraw()"><i data-lucide="trash-2"></i>Clear All</div>
+                </div>
+                <div class="slider-group" style="margin-top:12px"><input type="range" min="1" max="80" value="5" oninput="setBW(this.value)"></div>
+                <div class="scroller" id="draw-colors"></div>
+            </div>
+
+            <div id="stk-shelf" class="shelf">
+                <div class="scroller" id="sticker-list"></div>
+            </div>
+
+            <div id="shp-shelf" class="shelf">
+                <div class="scroller">
+                    <div class="tool-card" onclick="addShape('rect', true)"><i data-lucide="square"></i>Rect</div>
+                    <div class="tool-card" onclick="addShape('rect', false)"><i data-lucide="frame"></i>H-Rect</div>
+                    <div class="tool-card" onclick="addShape('circle', true)"><i data-lucide="circle"></i>Circle</div>
+                    <div class="tool-card" onclick="addShape('circle', false)"><i data-lucide="circle-dashed"></i>H-Circle</div>
+                    <div class="tool-card" onclick="addShape('triangle', true)"><i data-lucide="triangle"></i>Triangle</div>
+                    <div class="tool-card" onclick="addShape('triangle', false)"><i data-lucide="play"></i>H-Triangle</div>
+                </div>
+                <div class="scroller" id="shape-colors" style="margin-top:10px"></div>
+            </div>
+
+            <div id="img-shelf" class="shelf">
+                <button onclick="document.getElementById('overlay-input').click()" class="premium-btn">
+                    <i data-lucide="image-plus"></i> Choose Image to Add
+                </button>
+                <input type="file" id="overlay-input" accept="image/*">
+            </div>
+
+            <!-- Navigation Bar -->
+            <div class="nav-bar">
+                <div class="nav-item active" onclick="tab('adj',this)"><i data-lucide="sliders-horizontal"></i>Adjust</div>
+                <div class="nav-item" onclick="tab('fil',this)"><i data-lucide="wand-2"></i>Filters</div>
+                <div class="nav-item" onclick="tab('txt',this)"><i data-lucide="type"></i>Text</div>
+                <div class="nav-item" onclick="tab('stk',this)"><i data-lucide="smile"></i>Stickers</div>
+                <div class="nav-item" onclick="tab('drw',this)"><i data-lucide="pen-tool"></i>Draw</div>
+                <div class="nav-item" onclick="tab('shp',this)"><i data-lucide="shapes"></i>Shapes</div>
+                <div class="nav-item" onclick="tab('img',this)"><i data-lucide="image"></i>Add Image</div>
+                <div class="nav-item" onclick="trf('rotate')"><i data-lucide="rotate-cw"></i>Rotate</div>
+                <div class="nav-item" onclick="trf('flipX')"><i data-lucide="flip-horizontal"></i>Flip H</div>
+                <div class="nav-item" onclick="trf('flipY')"><i data-lucide="flip-vertical"></i>Flip V</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Custom Color -->
+    <input type="color" id="custom-color" oninput="setCol(this.value)">
+
+    <script>
+        lucide.createIcons();
+        let canvas, mainImg, history = [], hStep = -1, currentColor = '#007AFF';
+        const colors = ['#ffffff', '#000000', '#007AFF', '#FF3B30', '#4CD964', '#FFCC00', '#5856D6', '#FF9500', '#00FFFF', '#FF00FF'];
+        const fonts = ['Poppins', 'Pacifico', 'Bebas Neue', 'Righteous', 'Lobster', 'Satisfy', 'Caveat', 'Permanent Marker', 'Monoton', 'Anton', 'Dancing Script', 'Fredoka One', 'Indie Flower', 'Yellowtail', 'Bangers'];
+        const emojis = ['🔥','✨','👑','😎','❤️','⭐','💎','🌈','⚡','🚀','🎨','📸','✅','💯','📍','💡'];
+
+        window.onload = () => {
+            canvas = new fabric.Canvas('c', {
+                width: window.innerWidth * 0.95,
+                height: window.innerHeight - 240,
+                backgroundColor: '#080808',
+                preserveObjectStacking: true,
+                objectCaching: false 
+            });
+
+            fabric.Object.prototype.set({
+                borderColor: '#007AFF',
+                cornerColor: '#ffffff',
+                cornerStrokeColor: '#007AFF',
+                cornerSize: 10,
+                transparentCorners: false,
+                borderScaleFactor: 2.5,
+                cornerStyle: 'circle'
+            });
+
+            canvas.on('selection:created', () => document.getElementById('del-btn').style.display = 'flex');
+            canvas.on('selection:updated', () => document.getElementById('del-btn').style.display = 'flex');
+            canvas.on('selection:cleared', () => document.getElementById('del-btn').style.display = 'none');
+            
+            canvas.on('object:added', () => saveH());
+            canvas.on('object:modified', () => saveH());
+            canvas.on('object:removed', () => saveH());
+
+            fonts.forEach(f => document.getElementById('font-list').innerHTML += `<div class="font-card" style="font-family:'${f}'" onclick="changeF('${f}')">${f}</div>`);
+            emojis.forEach(e => document.getElementById('sticker-list').innerHTML += `<div class="sticker-btn-clean" onclick="addStk('${e}')">${e}</div>`);
+            
+            ['text-colors', 'draw-colors', 'shape-colors'].forEach(s => {
+                const con = document.getElementById(s);
+                con.innerHTML = `<div class="color-dot rainbow-picker" onclick="document.getElementById('custom-color').click()"></div>`;
+                colors.forEach(c => {
+                    const isActive = (c === '#007AFF') ? 'active' : '';
+                    con.innerHTML += `<div class="color-dot ${isActive}" style="background:${c}" onclick="setCol('${c}', this)"></div>`;
+                });
+            });
+        };
+
+        document.getElementById('file-input').onchange = (e) => {
+            const reader = new FileReader();
+            reader.onload = f => {
+                fabric.Image.fromURL(f.target.result, img => {
+                    document.getElementById('welcome-screen').style.display = 'none';
+                    document.getElementById('editor-screen').style.display = 'flex';
+                    const scale = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.88;
+                    img.scale(scale);
+                    img.set({ left: canvas.width/2, top: canvas.height/2, originX: 'center', originY: 'center', selectable: true, objectCaching: false });
+                    mainImg = img;
+                    canvas.add(img);
+                    canvas.setActiveObject(img);
+                });
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        };
+
+        document.getElementById('overlay-input').onchange = (e) => {
+            const reader = new FileReader();
+            reader.onload = f => {
+                fabric.Image.fromURL(f.target.result, img => {
+                    img.scale(0.35);
+                    img.set({ left: canvas.width/2, top: canvas.height/2, originX: 'center', originY: 'center', objectCaching: false });
+                    canvas.add(img);
+                    canvas.setActiveObject(img);
+                });
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        };
+
+        function tab(id, el) {
+            document.querySelectorAll('.shelf').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(id + '-shelf').classList.add('active');
+            el.classList.add('active');
+            canvas.isDrawingMode = (id === 'drw');
+            if(id === 'drw') setBrush('pencil');
+        }
+
+        function adj(type, val, lbl) {
+            if(!mainImg) return;
+            document.getElementById(lbl).innerText = val;
+            const idx = { 'Brightness': 0, 'Contrast': 1, 'Saturation': 2, 'Blur': 3 };
+            const v = parseFloat(val);
+            let filter;
+            if(type === 'Brightness') filter = new fabric.Image.filters.Brightness({ brightness: v });
+            if(type === 'Contrast') filter = new fabric.Image.filters.Contrast({ contrast: v });
+            if(type === 'Saturation') filter = new fabric.Image.filters.Saturation({ saturation: v });
+            if(type === 'Blur') filter = new fabric.Image.filters.Blur({ blur: v });
+            mainImg.filters[idx[type]] = filter;
+            mainImg.applyFilters();
+            canvas.requestRenderAll();
+        }
+
+        function applyF(el, name) {
+            if(!mainImg) return;
+            document.querySelectorAll('#filter-list .tool-card').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
+            mainImg.filters[5] = (name === 'none') ? null : new fabric.Image.filters[name]();
+            mainImg.applyFilters();
+            canvas.requestRenderAll();
+        }
+
+        function addT() {
+            const t = new fabric.IText('Edit Text', { 
+                left: canvas.width/2, top: canvas.height/2, fill: currentColor, 
+                fontFamily: 'Poppins', originX: 'center', fontSize: 35
+            });
+            canvas.add(t);
+            canvas.setActiveObject(t);
+        }
+
+        function changeF(f) {
+            const o = canvas.getActiveObject();
+            if(o && o.type === 'i-text') { o.set('fontFamily', f); canvas.renderAll(); }
+        }
+
+        function addStk(e) {
+            const s = new fabric.Text(e, { left: canvas.width/2, top: canvas.height/2, fontSize: 60, originX: 'center' });
+            canvas.add(s);
+            canvas.setActiveObject(s);
+        }
+
+        function addShape(type, solid) {
+            let s;
+            const p = { left: 100, top: 100, width: 100, height: 100, fill: solid ? currentColor : 'transparent', stroke: solid ? '' : currentColor, strokeWidth: solid ? 0 : 6 };
+            if(type === 'rect') s = new fabric.Rect(p);
+            if(type === 'circle') s = new fabric.Circle({...p, radius: 55});
+            if(type === 'triangle') s = new fabric.Triangle(p);
+            canvas.add(s);
+            canvas.setActiveObject(s);
+        }
+
+        function setBrush(type) {
+            document.querySelectorAll('#drw-shelf .tool-card').forEach(c => c.classList.remove('active'));
+            canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+            canvas.freeDrawingBrush.width = 6;
+            canvas.freeDrawingBrush.color = currentColor;
+            if(type === 'marker') {
+                canvas.freeDrawingBrush.color = currentColor + '77';
+                canvas.freeDrawingBrush.width = 28;
+                document.getElementById('b-marker').classList.add('active');
+            } else if(type === 'neon') {
+                canvas.freeDrawingBrush.shadow = new fabric.Shadow({ blur: 18, color: currentColor });
+                document.getElementById('b-neon').classList.add('active');
+            } else {
+                document.getElementById('b-pencil').classList.add('active');
+            }
+        }
+
+        function setBW(w) { if(canvas.freeDrawingBrush) canvas.freeDrawingBrush.width = parseInt(w); }
+        function clearDraw() { canvas.getObjects('path').forEach(p => canvas.remove(p)); canvas.renderAll(); }
+
+        function setCol(c, el) {
+            currentColor = c;
+            document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+            if(el) el.classList.add('active');
+            const o = canvas.getActiveObject();
+            if(o) {
+                if(o.stroke && o.fill === 'transparent') o.set('stroke', c);
+                else o.set('fill', c);
+                canvas.renderAll();
+            }
+            if(canvas.isDrawingMode) canvas.freeDrawingBrush.color = c;
+        }
+
+        function trf(type) {
+            const o = canvas.getActiveObject() || mainImg;
+            if(!o) return;
+            if(type === 'rotate') o.rotate((o.angle || 0) + 90);
+            else if(type === 'flipX') o.set('flipX', !o.flipX);
+            else if(type === 'flipY') o.set('flipY', !o.flipY);
+            canvas.renderAll();
+        }
+
+        function deleteObj() {
+            const o = canvas.getActiveObject();
+            if(o && o !== mainImg) { canvas.remove(o); canvas.discardActiveObject(); canvas.renderAll(); }
+        }
+
+        let isProcessingHistory = false;
+        function saveH() {
+            if (isProcessingHistory) return;
+            const json = JSON.stringify(canvas);
+            if (hStep < history.length - 1) history = history.slice(0, hStep + 1);
+            history.push(json);
+            hStep++;
+            if (history.length > 35) { history.shift(); hStep--; }
+            updateHistoryButtons();
+        }
+
+        function undo() {
+            if (hStep > 0) {
+                isProcessingHistory = true; hStep--;
+                canvas.loadFromJSON(history[hStep], () => {
+                    canvas.requestRenderAll(); isProcessingHistory = false; updateHistoryButtons();
+                    mainImg = canvas.getObjects().find(o => o.type === 'image' && !o.selectable === false) || canvas.getObjects()[0];
+                });
+            }
+        }
+
+        function redo() {
+            if (hStep < history.length - 1) {
+                isProcessingHistory = true; hStep++;
+                canvas.loadFromJSON(history[hStep], () => {
+                    canvas.requestRenderAll(); isProcessingHistory = false; updateHistoryButtons();
+                    mainImg = canvas.getObjects().find(o => o.type === 'image') || canvas.getObjects()[0];
+                });
+            }
+        }
+
+        function updateHistoryButtons() {
+            document.getElementById('undo-btn').classList.toggle('disabled', hStep <= 0);
+            document.getElementById('redo-btn').classList.toggle('disabled', hStep >= history.length - 1);
+        }
+
+        /* --- NEW EXPORT LOGIC FOR WEBVIEW --- */
+        function openExport() {
+            // Unselect objects so handles don't show up in image
+            canvas.discardActiveObject();
+            canvas.requestRenderAll();
+
+            setTimeout(() => {
+                // Generate high quality PNG
+                const dataURL = canvas.toDataURL({
+                    format: 'png',
+                    quality: 1.0,
+                    multiplier: 2 // Export in high resolution
+                });
+
+                // Update Preview Image
+                const previewImg = document.getElementById('preview-img-result');
+                previewImg.src = dataURL;
+
+                // Show Export Page
+                document.getElementById('export-page').style.display = 'flex';
+                lucide.createIcons();
+            }, 150);
+        }
+
+        function closeExport() {
+            document.getElementById('export-page').style.display = 'none';
+            document.getElementById('preview-img-result').src = "";
+        }
+
+        function triggerNativeDownload() {
+            const dataURL = document.getElementById('preview-img-result').src;
+            const link = document.createElement('a');
+            link.href = dataURL;
+            link.download = 'velo-photo-editor.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
